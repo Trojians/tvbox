@@ -10,6 +10,9 @@
 // v4.3 adds fixed live sources: the merge only collects on-demand sites,
 // so lives is filled with two public playlists (fanmingming CCTV+satellite,
 // IPv6 streams; iptv-org China list as an IPv4 fallback).
+// v4.4 swaps the live source to fanmingming itv.m3u (IPv4, 189 channels):
+// v4.3's ipv6.m3u black-screened in the 小安 test — all streams IPv6,
+// unplayable without IPv6. itv.m3u is IPv4 (China Mobile cmvideo).
 
 /**
  * Creates a standard JSON response object with essential CORS headers.
@@ -96,11 +99,12 @@ async function runAggregation(taskId, env) {
         log(`合并完成。聚合站点数: ${aggregatedJson.sites.length}`);
         await updateTaskState();
 
-        // 固定直播源（v4.3）：聚合只收点播站，源文件里的 lives 不合并，
-        // 所以直播须单独补。fanmingming 为央视+卫视（IPv6 流，需家里宽带有
-        // IPv6 才能播）；iptv-org 中国列表为 IPv4 备用。
+        // 固定直播源（v4.4）：聚合只收点播站，源文件里的 lives 不合并，
+        // 所以直播须单独补。fanmingming itv.m3u 为央视+卫视（IPv4 流，
+        // 189 台；v4.3 的 ipv6.m3u 在小安实测黑屏——流全是 IPv6，设备无
+        // IPv6 就播不出，已弃）；iptv-org 中国列表为第二组（未逐条验活）。
         aggregatedJson.lives = [
-            { "name": "央视卫视", "type": 0, "url": "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u" },
+            { "name": "央视卫视", "type": 0, "url": "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/itv.m3u" },
             { "name": "华语综合", "type": 0, "url": "https://iptv-org.github.io/iptv/countries/cn.m3u" }
         ];
         log(`直播源已补 2 组。`);
