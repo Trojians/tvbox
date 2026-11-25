@@ -120,25 +120,6 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
-        // TEMPORARY DIAGNOSTIC (remove before final): report runtime bindings.
-        if (url.pathname === '/__debug') {
-            async function probeKV(name, key) {
-                const v = env[name];
-                let err = null, res = null;
-                try { res = await v.get(key); } catch (e) { err = String((e && e.message) || e); }
-                return { present: !!v, type: typeof v, getError: err, getResult: res };
-            }
-            // Replicate the exact KV calls the real handlers make (now on TVBOX_KV2).
-            const subCall = await probeKV('TVBOX_KV2', 'latest_aggregated_result');
-            const statusCall = await probeKV('TVBOX_KV2', 'test123');
-            return jsonResponse({
-                diagTest: await probeKV('TVBOX_KV2', '__diag_test'),
-                subscribeKey: subCall,
-                taskStatusKey: statusCall,
-                envKeys: Object.keys(env),
-            });
-        }
-
         // Handle CORS preflight requests (OPTIONS method)
         if (request.method === 'OPTIONS') {
             return new Response(null, {
