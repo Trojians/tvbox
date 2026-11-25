@@ -7,6 +7,9 @@
 // onRequest(context) export. The old onRequest-only export left the
 // production Worker without a valid entry point, so every request failed
 // at the runtime layer. Business logic below is unchanged.
+// v4.3 adds fixed live sources: the merge only collects on-demand sites,
+// so lives is filled with two public playlists (fanmingming CCTV+satellite,
+// IPv6 streams; iptv-org China list as an IPv4 fallback).
 
 /**
  * Creates a standard JSON response object with essential CORS headers.
@@ -92,6 +95,15 @@ async function runAggregation(taskId, env) {
         }
         log(`合并完成。聚合站点数: ${aggregatedJson.sites.length}`);
         await updateTaskState();
+
+        // 固定直播源（v4.3）：聚合只收点播站，源文件里的 lives 不合并，
+        // 所以直播须单独补。fanmingming 为央视+卫视（IPv6 流，需家里宽带有
+        // IPv6 才能播）；iptv-org 中国列表为 IPv4 备用。
+        aggregatedJson.lives = [
+            { "name": "央视卫视", "type": 0, "url": "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u" },
+            { "name": "华语综合", "type": 0, "url": "https://iptv-org.github.io/iptv/countries/cn.m3u" }
+        ];
+        log(`直播源已补 2 组。`);
 
         // 3. Store the final result in KV.
         log('步骤 3/3: 正在将最终结果写入KV...');
