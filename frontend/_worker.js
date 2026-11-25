@@ -122,8 +122,19 @@ export default {
 
         // TEMPORARY DIAGNOSTIC: report which bindings the runtime actually sees.
         if (url.pathname === '/__debug') {
+            let kvType = typeof env.TVBOX_KV;
+            let kvGetError = null;
+            let kvGetResult = null;
+            try {
+                kvGetResult = await env.TVBOX_KV.get('__diag_test');
+            } catch (e) {
+                kvGetError = String((e && e.message) || e);
+            }
             return jsonResponse({
                 hasKV: !!env.TVBOX_KV,
+                kvType,
+                kvGetError,
+                kvGetResult,
                 hasASSETS: !!env.ASSETS,
                 hasGH_TOKEN: !!env.GH_TOKEN,
                 envKeys: Object.keys(env),
