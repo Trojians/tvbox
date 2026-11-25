@@ -1,7 +1,12 @@
-// --- TVBox Aggregator _worker.js - Final Version 4.1 (CORS Fix) ---
-// This version reinstates the critical CORS headers that were mistakenly removed
+// --- TVBox Aggregator _worker.js - Final Version 4.2 (Module Worker Fix) ---
+// v4.1 reinstated the critical CORS headers that were mistakenly removed
 // during the simplification process. This is the direct fix for the
 // "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin" error.
+// v4.2 fixes Error 1019: _worker.js advanced mode requires Module Worker
+// syntax (export default { fetch }), NOT the functions/ file-routing
+// onRequest(context) export. The old onRequest-only export left the
+// production Worker without a valid entry point, so every request failed
+// at the runtime layer. Business logic below is unchanged.
 
 /**
  * Creates a standard JSON response object with essential CORS headers.
@@ -107,61 +112,63 @@ async function runAggregation(taskId, env) {
 }
 
 /**
- * Main entry point for all requests.
- * @param {object} context - The Cloudflare runtime context object.
+ * Main entry point for all requests (Module Worker syntax, required by
+ * Pages _worker.js advanced mode). Static assets are served via
+ * env.ASSETS; there is no `next()` in this mode.
  */
-export async function onRequest(context) {
-    const { request, env, next } = context;
-    const url = new URL(request.url);
+export default {
+    async fetch(request, env, ctx) {
+        const url = new URL(request.url);
 
-    // Handle CORS preflight requests (OPTIONS method)
-    if (request.method === 'OPTIONS') {
-        return new Response(null, {
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            }
-        });
-    }
-
-    // --- API: Start Task ---
-    if (url.pathname === '/api/start-task' && request.method === 'POST') {
-        const taskId = `task-${Date.now()}`;
-        context.waitUntil(runAggregation(taskId, env));
-        return jsonResponse({
-            message: '任务已启动，请稍后查询状态。',
-            taskId: taskId
-        });
-    }
-
-    // --- API: Get Task Status ---
-    if (url.pathname === '/api/task-status') {
-        const taskId = url.searchParams.get('taskId');
-        if (!taskId) return jsonResponse({ error: '缺少 taskId' }, 400);
-
-        const taskStateJson = await env.TVBOX_KV.get(taskId);
-        if (!taskStateJson) return jsonResponse({ status: 'pending', logs: '正在初始化任务...' });
-
-        // Use jsonResponse to ensure CORS headers are included
-        return jsonResponse(JSON.parse(taskStateJson));
-    }
-
-    // --- Dynamic Route: Get Subscription File ---
-    if (url.pathname === '/subscribe.json') {
-        const latestResult = await env.TVBOX_KV.get('latest_aggregated_result');
-        if (!latestResult) {
-            return jsonResponse({ note: "尚未生成聚合数据，请先启动聚合任务。" }, 404);
+        // Handle CORS preflight requests (OPTIONS method)
+        if (request.method === 'OPTIONS') {
+            return new Response(null, {
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                }
+            });
         }
-        // Manually create response but ensure CORS headers are present
-        return new Response(latestResult, {
-            headers: {
-                'Content-Type': 'application/json;charset=UTF-8',
-                'Access-Control-Allow-Origin': '*'
-            }
-        });
-    }
 
-    // If no API route matches, serve the static assets.
-    return next();
-}
+        // --- API: Start Task ---
+        if (url.pathname === '/api/start-task' && request.method === 'POST') {
+            const taskId = `task-${Date.now()}`;
+            ctx.waitUntil(runAggregation(taskId, env));
+            return jsonResponse({
+                message: '任务已启动，请稍后查询状态。',
+                taskId: taskId
+            });
+        }
+
+        // --- API: Get Task Status ---
+        if (url.pathname === '/api/task-status') {
+            const taskId = url.searchParams.get('taskId');
+            if (!taskId) return jsonResponse({ error: '缺少 taskId' }, 400);
+
+            const taskStateJson = await env.TVBOX_KV.get(taskId);
+            if (!taskStateJson) return jsonResponse({ status: 'pending', logs: '正在初始化任务...' });
+
+            // Use jsonResponse to ensure CORS headers are included
+            return jsonResponse(JSON.parse(taskStateJson));
+        }
+
+        // --- Dynamic Route: Get Subscription File ---
+        if (url.pathname === '/subscribe.json') {
+            const latestResult = await env.TVBOX_KV.get('latest_aggregated_result');
+            if (!latestResult) {
+                return jsonResponse({ note: "尚未生成聚合数据，请先启动聚合任务。" }, 404);
+            }
+            // Manually create response but ensure CORS headers are present
+            return new Response(latestResult, {
+                headers: {
+                    'Content-Type': 'application/json;charset=UTF-8',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
+        }
+
+        // If no API route matches, serve the static assets.
+        return env.ASSETS.fetch(request);
+    }
+};
