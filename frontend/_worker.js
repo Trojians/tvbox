@@ -120,6 +120,16 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
+        // TEMPORARY DIAGNOSTIC: report which bindings the runtime actually sees.
+        if (url.pathname === '/__debug') {
+            return jsonResponse({
+                hasKV: !!env.TVBOX_KV,
+                hasASSETS: !!env.ASSETS,
+                hasGH_TOKEN: !!env.GH_TOKEN,
+                envKeys: Object.keys(env),
+            });
+        }
+
         // Handle CORS preflight requests (OPTIONS method)
         if (request.method === 'OPTIONS') {
             return new Response(null, {
