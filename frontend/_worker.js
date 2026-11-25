@@ -172,7 +172,7 @@ export default {
                 // Use jsonResponse to ensure CORS headers are included
                 return jsonResponse(JSON.parse(taskStateJson));
             } catch (e) {
-                return jsonResponse({ handler: 'task-status', error: String((e && e.message) || e), stack: String((e && e.stack) || '') }, 500);
+                return jsonResponse({ handler: 'task-status', error: String((e && e.message) || e), stack: String((e && e.stack) || ''), envKeys: Object.keys(env), kvType: typeof env.TVBOX_KV }, 500);
             }
         }
 
@@ -191,7 +191,7 @@ export default {
                     }
                 });
             } catch (e) {
-                return jsonResponse({ handler: 'subscribe', error: String((e && e.message) || e), stack: String((e && e.stack) || '') }, 500);
+                return jsonResponse({ handler: 'subscribe', error: String((e && e.message) || e), stack: String((e && e.stack) || ''), envKeys: Object.keys(env), kvType: typeof env.TVBOX_KV }, 500);
             }
         }
 
