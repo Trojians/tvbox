@@ -13,6 +13,12 @@
 // v4.4 swaps the live source to fanmingming itv.m3u (IPv4, 189 channels):
 // v4.3's ipv6.m3u black-screened in the 小安 test — all streams IPv6,
 // unplayable without IPv6. itv.m3u is IPv4 (China Mobile cmvideo).
+// v4.5 swaps the live source to the Danbo clean list (304 verified IPv4
+// channels, served from our own Pages mirror): v4.4's itv.m3u was all
+// China Mobile cmvideo.cn, whose popular channels (CCTV-1, 湖南卫视)
+// black-screened in the 小安 test (server-side restriction, HTTP 403
+// error 1034). The iptv-org cn.m3u fallback group is dropped (unreliable,
+// spot checks mostly unreachable).
 
 /**
  * Creates a standard JSON response object with essential CORS headers.
@@ -99,15 +105,15 @@ async function runAggregation(taskId, env) {
         log(`合并完成。聚合站点数: ${aggregatedJson.sites.length}`);
         await updateTaskState();
 
-        // 固定直播源（v4.4）：聚合只收点播站，源文件里的 lives 不合并，
-        // 所以直播须单独补。fanmingming itv.m3u 为央视+卫视（IPv4 流，
-        // 189 台；v4.3 的 ipv6.m3u 在小安实测黑屏——流全是 IPv6，设备无
-        // IPv6 就播不出，已弃）；iptv-org 中国列表为第二组（未逐条验活）。
+        // 固定直播源（v4.5）：聚合只收点播站，源文件里的 lives 不合并，
+        // 所以直播须单独补。蛋播干净列表 304 台（央视 44、卫视 107、
+        // 其他 152、体育 1），全 IPv4、已逐条验活、无 cmvideo.cn；
+        // v4.4 的 itv.m3u 全走移动 cmvideo.cn，热门台被服务端限制黑屏，
+        // 已弃；iptv-org 华语综合组抽查多连不上，已删。
         aggregatedJson.lives = [
-            { "name": "央视卫视", "type": 0, "url": "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/itv.m3u" },
-            { "name": "华语综合", "type": 0, "url": "https://iptv-org.github.io/iptv/countries/cn.m3u" }
+            { "name": "蛋播直播", "type": 0, "url": "https://silver8023.github.io/danbo-live.m3u" }
         ];
-        log(`直播源已补 2 组。`);
+        log(`直播源已补 1 组（蛋播 304 台）。`);
 
         // 3. Store the final result in KV.
         log('步骤 3/3: 正在将最终结果写入KV...');
