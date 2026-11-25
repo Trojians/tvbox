@@ -37,8 +37,8 @@ async function runAggregation(taskId, env) {
     const updateTaskState = async () => {
         taskState.logs = logs.join('\n');
         // Persist the task state to KV so it can be polled.
-        if (env['TVBOX_KV']) {
-            await env['TVBOX_KV'].put(taskId, JSON.stringify(taskState));
+        if (env['TVBOX_KV2']) {
+            await env['TVBOX_KV2'].put(taskId, JSON.stringify(taskState));
         }
     };
 
@@ -95,9 +95,9 @@ async function runAggregation(taskId, env) {
 
         // 3. Store the final result in KV.
         log('步骤 3/3: 正在将最终结果写入KV...');
-        if (!env['TVBOX_KV']) throw new Error("配置错误: 未绑定 TVBOX_KV 命名空间。");
+        if (!env['TVBOX_KV2']) throw new Error("配置错误: 未绑定 TVBOX_KV2 命名空间。");
 
-        await env['TVBOX_KV'].put('latest_aggregated_result', JSON.stringify(aggregatedJson, null, 2));
+        await env['TVBOX_KV2'].put('latest_aggregated_result', JSON.stringify(aggregatedJson, null, 2));
         log('写入成功！任务完成！');
 
         taskState.status = 'completed';
@@ -128,11 +128,11 @@ export default {
                 try { res = await v.get(key); } catch (e) { err = String((e && e.message) || e); }
                 return { present: !!v, type: typeof v, getError: err, getResult: res };
             }
-            // Replicate the exact KV calls the real handlers make.
-            const subCall = await probeKV('TVBox_KV', 'latest_aggregated_result');
-            const statusCall = await probeKV('TVBox_KV', 'test123');
+            // Replicate the exact KV calls the real handlers make (now on TVBOX_KV2).
+            const subCall = await probeKV('TVBOX_KV2', 'latest_aggregated_result');
+            const statusCall = await probeKV('TVBOX_KV2', 'test123');
             return jsonResponse({
-                diagTest: await probeKV('TVBox_KV', '__diag_test'),
+                diagTest: await probeKV('TVBOX_KV2', '__diag_test'),
                 subscribeKey: subCall,
                 taskStatusKey: statusCall,
                 envKeys: Object.keys(env),
@@ -166,20 +166,20 @@ export default {
             if (!taskId) return jsonResponse({ error: '缺少 taskId' }, 400);
 
             try {
-                const taskStateJson = await env['TVBOX_KV'].get(taskId);
+                const taskStateJson = await env['TVBOX_KV2'].get(taskId);
                 if (!taskStateJson) return jsonResponse({ status: 'pending', logs: '正在初始化任务...' });
 
                 // Use jsonResponse to ensure CORS headers are included
                 return jsonResponse(JSON.parse(taskStateJson));
             } catch (e) {
-                return jsonResponse({ handler: 'task-status', error: String((e && e.message) || e), stack: String((e && e.stack) || ''), envKeys: Object.keys(env), kvType: typeof env['TVBOX_KV'] }, 500);
+                return jsonResponse({ handler: 'task-status', error: String((e && e.message) || e), stack: String((e && e.stack) || ''), envKeys: Object.keys(env), kvType: typeof env['TVBOX_KV2'] }, 500);
             }
         }
 
         // --- Dynamic Route: Get Subscription File ---
         if (url.pathname === '/subscribe.json') {
             try {
-                const latestResult = await env['TVBOX_KV'].get('latest_aggregated_result');
+                const latestResult = await env['TVBOX_KV2'].get('latest_aggregated_result');
                 if (!latestResult) {
                     return jsonResponse({ note: "尚未生成聚合数据，请先启动聚合任务。" }, 404);
                 }
@@ -191,7 +191,7 @@ export default {
                     }
                 });
             } catch (e) {
-                return jsonResponse({ handler: 'subscribe', error: String((e && e.message) || e), stack: String((e && e.stack) || ''), envKeys: Object.keys(env), kvType: typeof env['TVBOX_KV'] }, 500);
+                return jsonResponse({ handler: 'subscribe', error: String((e && e.message) || e), stack: String((e && e.stack) || ''), envKeys: Object.keys(env), kvType: typeof env['TVBOX_KV2'] }, 500);
             }
         }
 
