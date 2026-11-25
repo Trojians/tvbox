@@ -165,26 +165,34 @@ export default {
             const taskId = url.searchParams.get('taskId');
             if (!taskId) return jsonResponse({ error: '缺少 taskId' }, 400);
 
-            const taskStateJson = await env.TVBOX_KV.get(taskId);
-            if (!taskStateJson) return jsonResponse({ status: 'pending', logs: '正在初始化任务...' });
+            try {
+                const taskStateJson = await env.TVBOX_KV.get(taskId);
+                if (!taskStateJson) return jsonResponse({ status: 'pending', logs: '正在初始化任务...' });
 
-            // Use jsonResponse to ensure CORS headers are included
-            return jsonResponse(JSON.parse(taskStateJson));
+                // Use jsonResponse to ensure CORS headers are included
+                return jsonResponse(JSON.parse(taskStateJson));
+            } catch (e) {
+                return jsonResponse({ handler: 'task-status', error: String((e && e.message) || e), stack: String((e && e.stack) || '') }, 500);
+            }
         }
 
         // --- Dynamic Route: Get Subscription File ---
         if (url.pathname === '/subscribe.json') {
-            const latestResult = await env.TVBOX_KV.get('latest_aggregated_result');
-            if (!latestResult) {
-                return jsonResponse({ note: "尚未生成聚合数据，请先启动聚合任务。" }, 404);
-            }
-            // Manually create response but ensure CORS headers are present
-            return new Response(latestResult, {
-                headers: {
-                    'Content-Type': 'application/json;charset=UTF-8',
-                    'Access-Control-Allow-Origin': '*'
+            try {
+                const latestResult = await env.TVBOX_KV.get('latest_aggregated_result');
+                if (!latestResult) {
+                    return jsonResponse({ note: "尚未生成聚合数据，请先启动聚合任务。" }, 404);
                 }
-            });
+                // Manually create response but ensure CORS headers are present
+                return new Response(latestResult, {
+                    headers: {
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                });
+            } catch (e) {
+                return jsonResponse({ handler: 'subscribe', error: String((e && e.message) || e), stack: String((e && e.stack) || '') }, 500);
+            }
         }
 
         // If no API route matches, serve the static assets.
